@@ -48,16 +48,18 @@ class AddCorrelatedFeature():
             reg_pat[envs['test'][0]][self.feat_name] = corrupt(reg_pat[envs['test'][0]]['target'], self.test_corrupt).astype(float)
         
 class Subsample():
-    def __init__(self, g1_mean, g2_mean):
+    def __init__(self, g1_mean, g2_mean, g1_dist, g2_dist):
         self.g1_mean = g1_mean
-        self.g2_mean = g2_mean   
+        self.g2_mean = g2_mean  
+        self.g1_dist = g1_dist
+        self.g2_dist = g2_dist  
     
-    def subsample(self, mort_df, pat_df, g1_mean, g2_mean):     
+    def subsample(self, mort_df, pat_df, g1, g2):     
         pat_df['group_membership'] = pat_df['gender'] == 'Male'
         
         brackets = {}
-        brackets[True] = compute_subsample_probability(pat_df[pat_df.group_membership], g1_mean)
-        brackets[False] = compute_subsample_probability(pat_df[~pat_df.group_membership], g2_mean)
+        brackets[True] = compute_subsample_probability(pat_df[pat_df.group_membership], g1)
+        brackets[False] = compute_subsample_probability(pat_df[~pat_df.group_membership], g2)
         
         pat_df['prob'] = pat_df[['group_membership', 'target']].apply(lambda x: aug_f(x['group_membership'], x['target'], brackets), axis = 1)
         pat_df['roll'] = np.random.binomial(1, p =  pat_df['prob'].values, size = len(pat_df))
@@ -72,18 +74,19 @@ class Subsample():
     
                 
     def augment(self, reg_mort, reg_pat, envs): 
-        all_envs = [j for i in envs.values() for j in i]
         means = {}
         if len(envs['train']) == 1: # ID test
             means[envs['test'][0]] = (0.1, 0.5)
         else:
-            means[envs['train'][0]] = (self.g1_mean, self.g2_mean)
-            means[envs['train'][1]] = (self.g1_mean - 0.1, self.g2_mean + 0.05)
-            means[envs['train'][2]] = (self.g1_mean - 0.2, self.g2_mean + 0.1)
+            means[envs['train'][0]] = (self.g1_mean + self.g1_dist, self.g2_mean - self.g2_dist)
+            means[envs['train'][1]] = (self.g1_mean, self.g2_mean)
+            means[envs['train'][2]] = (self.g1_mean - self.g1_dist, self.g2_mean + self.g2_dist)
             means[envs['val'][0]] = (0.3, 0.3)
             means[envs['test'][0]] = (0.1, 0.5)
         
         for env in means:
+            assert(0 <= means[env][0] <= 1)
+            assert(0 <= means[env][1] <= 1)
             reg_mort[env], reg_pat[env] = self.subsample(reg_mort[env], reg_pat[env], means[env][0], means[env][1])
                      
             

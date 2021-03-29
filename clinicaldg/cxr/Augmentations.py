@@ -5,12 +5,16 @@ from clinicaldg.cxr import process
 from clinicaldg import datasets
 from clinicaldg.eicu.Augmentations import compute_subsample_probability, aug_f
 
-def subsample_augment(g1_mean, g2_mean, target_name = 'Pneumonia'):   
+def subsample_augment(g1_mean, g2_mean, g1_dist, g2_dist, target_name = 'Pneumonia'):   
     means = {}
-    means['MIMIC'] = (g1_mean, g2_mean)
-    means['CXP'] = (g1_mean - 0.1, g2_mean + 0.01)
+    means['MIMIC'] = (g1_mean + g1_dist/2, g2_mean - g2_dist/2)
+    means['CXP'] = (g1_mean - g1_dist/2, g2_mean + g2_dist/2)
     means['NIH'] = (0.07, 0.04)
     means['PAD'] = (0.05, 0.05)
+
+    for env in means:
+        for i in means[env]:
+            assert(0 <= i <= 1)
         
     dfs = {}
     for env in Constants.df_paths:

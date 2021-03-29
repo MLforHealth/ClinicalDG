@@ -191,7 +191,7 @@ class ColoredMNIST():
 class eICUBase():
     '''
     Base hyperparameters:
-    eicu_architecture: [MLP, GRU]
+    eicu_architecture: {MLP, GRU}
     
     '''
     ENVIRONMENTS = ['Midwest', 'West', 'Northeast', 'Missing', 'South']
@@ -264,13 +264,16 @@ class eICUCorrLabel(eICUBase):
 class eICUSubsampleObs(eICUBase):    
     '''
     Hyperparameters:
-    eicu_subsample_g1_mean
-    eicu_subsample_g2_mean
+    subsample_g1_mean
+    subsample_g2_mean
+    subsample_g1_dist
+    subsample_g2_dist
     '''
     def __init__(self, hparams, args):
         super().__init__()
         self.d = eicuData.AugmentedDataset(self.TRAIN_ENVS, self.VAL_ENV, self.TEST_ENV,
-                                           [eicuAugmentations.SubsampleUnobs(hparams['eicu_subsample_g1_mean'], hparams['eicu_subsample_g2_mean'])], 
+                                           [eicuAugmentations.Subsample(hparams['subsample_g1_mean'], hparams['subsample_g2_mean'],
+                                                hparams['subsample_g1_dist'], hparams['subsample_g2_dist'])], 
                        train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT, 
                                            split_test_env = (args.algorithm == 'ERMID' or args.es_method == 'test'))     
         
@@ -278,8 +281,10 @@ class eICUSubsampleObs(eICUBase):
 class eICUSubsampleUnobs(eICUSubsampleObs):    
     '''
     Hyperparameters:
-    eicu_subsample_g1_mean
-    eicu_subsample_g2_mean
+    subsample_g1_mean
+    subsample_g2_mean
+    subsample_g1_dist
+    subsample_g2_dist
     '''
     def __init__(self, hparams, args):
         eicuConstants.static_cat_features.remove('gender')
@@ -293,6 +298,7 @@ class eICUCorrNoise(eICUBase):
     corr_noise_train_corrupt_mean
     corr_noise_val_corrupt
     corr_noise_test_corrupt
+    corr_noise_std
     corr_noise_feature
     '''
     def __init__(self, hparams, args):
@@ -313,8 +319,8 @@ class eICUCorrNoise(eICUBase):
 class CXRBase():
     '''
     Base hyperparameters:
-    cxr_augment: [0, 1]
-    use_cache: [0, 1]
+    cxr_augment: {0, 1}
+    use_cache: {0, 1}
     '''
     ENVIRONMENTS = ['MIMIC', 'CXP', 'NIH', 'PAD']
     MAX_STEPS = 20000
@@ -400,14 +406,16 @@ class CXRBinary(CXRBase):
 class CXRSubsampleUnobs(CXRBinary):
     '''
     Hyperparameters:
-    cxr_subsample_g1_mean
-    cxr_subsample_g2_mean
+    subsample_g1_mean
+    subsample_g2_mean
+    subsample_g1_dist
+    subsample_g2_dist
     '''
     
     def __init__(self, hparams, args):
         super().__init__(hparams, args)
-        self.dfs = cxrAugmentations.subsample_augment(hparams['cxr_subsample_g1_mean'], 
-                                                                   hparams['cxr_subsample_g2_mean'])
+        self.dfs = cxrAugmentations.subsample_augment(hparams['subsample_g1_mean'], 
+                                                                   hparams['subsample_g2_mean'], hparams['subsample_g1_dist'], hparams['subsample_g2_dist'])
         
     def get_torch_dataset(self, envs, dset):
         augment = 0 if dset in ['val', 'test'] else self.hparams['cxr_augment']    

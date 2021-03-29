@@ -15,14 +15,17 @@ def _hparams(algorithm, dataset, random_seed):
     SMALL_IMAGES = ['Debug28', 'RotatedMNIST', 'ColoredMNIST']
 
     hparams = {}
-    def _hparam(name, default_val, random_val_fn):
+    def _hparam(name, default_val, random_val_fn = None):
         """Define a hyperparameter. random_val_fn takes a RandomState and
         returns a random hyperparameter value."""
         assert(name not in hparams)
         random_state = np.random.RandomState(
             misc.seed_hash(random_seed, name)
         )
-        hparams[name] = (default_val, random_val_fn(random_state))
+        if random_val_fn is not None:
+            hparams[name] = (default_val, random_val_fn(random_state))
+        else:
+            hparams[name] = (default_val, default_val)
 
     # Algorithm-specific hparam definitions. Each block of code below
     # corresponds to exactly one algorithm.
@@ -123,16 +126,50 @@ def _hparams(algorithm, dataset, random_seed):
         _hparam('gru_hidden_dim', 128, lambda r: int(2 ** r.uniform(5, 8)))
         _hparam('gru_layers', 3, lambda r: int(r.choice([2, 3, 4])))
         _hparam('emb_dim', 16, lambda r: int(2 ** r.uniform(3, 5)))
-        _hparam('batch_size', 128, lambda r: 128) 
+        _hparam('batch_size', 128) 
         
     elif dataset[:3] == 'CXR':    
         _hparam('lr', 1e-3, lambda r: 10**r.uniform(-4.5, -2.5))
         if algorithm in ['IGA', 'MLDG']:
-            _hparam('batch_size', 12, lambda r: 12) 
+            _hparam('batch_size', 12) 
         elif algorithm in ['MLDG']:
-            _hparam('batch_size', 16, lambda r: 16) 
+            _hparam('batch_size', 16) 
         else:
-            _hparam('batch_size', 32, lambda r: 32) 
+            _hparam('batch_size', 32) 
+
+
+    # data hyperparameters
+    _hparam('eicu_architecture', "GRU")
+    _hparam('corr_label_train_corrupt_dist', 0.1)
+    _hparam('corr_label_train_corrupt_mean', 0.1)
+    _hparam('corr_label_val_corrupt', 0.5)
+    _hparam('corr_label_test_corrupt', 0.9)
+
+    _hparam('corr_noise_train_corrupt_dist', 0.5)
+    _hparam('corr_noise_train_corrupt_mean', 2.0)
+    _hparam('corr_noise_val_corrupt', 0.0)
+    _hparam('corr_noise_test_corrupt', -1.0)
+    _hparam('corr_noise_std', 0.5)
+    _hparam('corr_noise_feature', "admissionweight")
+
+    if dataset[:4] == 'eICU':
+        _hparam('subsample_g1_mean', 0.7)
+        _hparam('subsample_g2_mean', 0.1)
+        _hparam('subsample_g1_dist', 0.1)
+        _hparam('subsample_g2_dist', 0.05)
+
+    elif dataset[:3] == 'CXR': 
+        _hparam('subsample_g1_mean', 0.15)
+        _hparam('subsample_g2_mean', 0.025)
+        _hparam('subsample_g1_dist', 0.1)
+        _hparam('subsample_g2_dist', 0.01)
+
+    _hparam('cxr_augment', 1)
+    _hparam('use_cache', 0)
+
+    _hparam('cmnist_eta', 0.25)
+    _hparam('cmnist_beta', 0.15)
+    _hparam('cmnist_delta', 0.1)
 
     return hparams
 
