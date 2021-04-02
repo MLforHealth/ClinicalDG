@@ -1,11 +1,10 @@
 import numpy as np
 import pandas as pd
 from clinicaldg.cxr import Constants
-from clinicaldg.cxr import process
 from clinicaldg import datasets
 from clinicaldg.eicu.Augmentations import compute_subsample_probability, aug_f
 
-def subsample_augment(g1_mean, g2_mean, g1_dist, g2_dist, target_name = 'Pneumonia'):   
+def subsample_augment(dfs, g1_mean, g2_mean, g1_dist, g2_dist, target_name = 'Pneumonia'):   
     means = {}
     means['MIMIC'] = (g1_mean + g1_dist/2, g2_mean - g2_dist/2)
     means['CXP'] = (g1_mean - g1_dist/2, g2_mean + g2_dist/2)
@@ -15,14 +14,12 @@ def subsample_augment(g1_mean, g2_mean, g1_dist, g2_dist, target_name = 'Pneumon
     for env in means:
         for i in means[env]:
             assert(0 <= i <= 1)
-        
-    dfs = {}
-    for env in Constants.df_paths:
-        for split in Constants.df_paths[env]:
-            func = process.get_process_func(env)
-            if env not in dfs:
-                dfs[env] = {}
-            df = func(pd.read_csv(Constants.df_paths[env][split]), only_frontal = True)
+    
+    new_dfs = {}
+    for env in dfs:
+        new_dfs[env] = {}
+        for split in dfs[env]:
+            df = dfs[env][split]
             
             df['group_membership'] = df['Sex'] == 'M'
         
@@ -36,6 +33,6 @@ def subsample_augment(g1_mean, g2_mean, g1_dist, g2_dist, target_name = 'Pneumon
             df = df[df['roll'] == 0]
             df = df.drop(columns = ['prob', 'roll', 'group_membership'])
             
-            dfs[env][split] = df
+            new_dfs[env][split] = df
             
-    return dfs
+    return new_dfs

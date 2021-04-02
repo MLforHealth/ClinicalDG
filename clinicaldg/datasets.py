@@ -17,6 +17,7 @@ import clinicaldg.eicu.Augmentations as eicuAugmentations
 import clinicaldg.cxr.Constants as cxrConstants
 import clinicaldg.cxr.data as cxrData
 import clinicaldg.cxr.Augmentations as cxrAugmentations
+import clinicaldg.cxr.process as cxrProcess
 from clinicaldg.scripts.download import mnist_dir
 from sklearn.metrics import roc_auc_score, accuracy_score, recall_score, f1_score, confusion_matrix, precision_score, matthews_corrcoef
 
@@ -338,6 +339,18 @@ class CXRBase():
         self.hparams = hparams
         self.use_cache = bool(self.hparams['use_cache']) if 'use_cache' in self.hparams else False
 
+        # loads data with random splits
+        self.dfs = {}
+        for env in cxrConstants.df_paths:
+            func = cxrProcess.get_process_func(env)
+            df_env = func(pd.read_csv(cxrConstants.df_paths[env]), only_frontal = True)
+            train_df, valid_df, test_df = cxrProcess.split(df_env)
+            self.dfs[env] = {
+                'train': train_df,
+                'val': valid_df,
+                'test': test_df
+            }
+
     def predict_on_set(self, algorithm, loader, device):
         preds, targets, genders = [], [], []
         with torch.no_grad():
@@ -387,7 +400,7 @@ class CXR(CXRBase):
     
     def get_torch_dataset(self, envs, dset):
         augment = 0 if dset in ['val', 'test'] else self.hparams['cxr_augment']            
-        return cxrData.get_dataset(envs = envs, split = dset, imagenet_norm = True, only_frontal = True, augment = augment, cache = self.use_cache)
+        return cxrData.get_dataset(self.dfs, envs = envs, split = dset, imagenet_norm = True, only_frontal = True, augment = augment, cache = self.use_cache)
                 
 class CXRBinary(CXRBase):
     num_classes = 2
@@ -399,7 +412,7 @@ class CXRBinary(CXRBase):
     
     def get_torch_dataset(self, envs, dset):
         augment = 0 if dset in ['val', 'test'] else self.hparams['cxr_augment']    
-        return cxrData.get_dataset(envs = envs, split = dset, imagenet_norm = True, only_frontal = True, augment = augment, cache = self.use_cache ,
+        return cxrData.get_dataset(self.dfs, envs = envs, split = dset, imagenet_norm = True, only_frontal = True, augment = augment, cache = self.use_cache ,
                                   subset_label = 'Pneumonia')
        
 
@@ -414,13 +427,13 @@ class CXRSubsampleUnobs(CXRBinary):
     
     def __init__(self, hparams, args):
         super().__init__(hparams, args)
-        self.dfs = cxrAugmentations.subsample_augment(hparams['subsample_g1_mean'], 
+        self.dfs = cxrAugmentations.subsample_augment(self.dfs, hparams['subsample_g1_mean'], 
                                                                    hparams['subsample_g2_mean'], hparams['subsample_g1_dist'], hparams['subsample_g2_dist'])
         
     def get_torch_dataset(self, envs, dset):
         augment = 0 if dset in ['val', 'test'] else self.hparams['cxr_augment']    
-        return cxrData.get_dataset(envs = envs, split = dset, imagenet_norm = True, only_frontal = True, augment = augment, cache = self.use_cache,
-                                  subset_label = 'Pneumonia', augmented_dfs = self.dfs)
+        return cxrData.get_dataset(self.dfs, envs = envs, split = dset, imagenet_norm = True, only_frontal = True, augment = augment, cache = self.use_cache,
+                                  subset_label = 'Pneumonia')
    
     
 class GenderConcatDataset(Dataset):
@@ -444,7 +457,7 @@ class GenderConcatDataset(Dataset):
 class CXRSubsampleObs(CXRSubsampleUnobs):        
     def get_torch_dataset(self, envs, dset):
         augment = 0 if dset in ['val', 'test'] else self.hparams['cxr_augment']    
-        return GenderConcatDataset(cxrData.get_dataset(envs = envs, split = dset, 
+        return GenderConcatDataset(cxrData.get_dataset(self.dfs, envs = envs, split = dset, 
                                   imagenet_norm = True, only_frontal = True, augment = augment, cache = self.use_cache,
                                   subset_label = 'Pneumonia', augmented_dfs = self.dfs))    
         

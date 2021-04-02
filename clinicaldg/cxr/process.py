@@ -6,8 +6,9 @@ from PIL import Image
 import pandas as pd
 import torch
 from pathlib import Path
+import random
 
-def preprocess_MIMIC(split, only_frontal):  
+def process_MIMIC(split, only_frontal):  
     copy_subjectid = split['subject_id']     
     split = split.drop(columns = ['subject_id']).replace(
             [[None], -1, "[False]", "[True]", "[ True]", 'UNABLE TO OBTAIN', 'UNKNOWN', 'MARRIED', 'LIFE PARTNER',
@@ -33,7 +34,7 @@ def preprocess_MIMIC(split, only_frontal):
     
     return split[['subject_id','path','Sex',"Age", 'env', 'frontal', 'study_id'] + Constants.take_labels]
 
-def preprocess_NIH(split, only_frontal = True):
+def process_NIH(split, only_frontal = True):
     split['Patient Age'] = np.where(split['Patient Age'].between(0,19), 19, split['Patient Age'])
     split['Patient Age'] = np.where(split['Patient Age'].between(20,39), 39, split['Patient Age'])
     split['Patient Age'] = np.where(split['Patient Age'].between(40,59), 59, split['Patient Age'])
@@ -56,7 +57,7 @@ def preprocess_NIH(split, only_frontal = True):
     return split[['subject_id','path','Sex',"Age", 'env', 'frontal','study_id'] + Constants.take_labels]
 
 
-def preprocess_CXP(split, only_frontal):
+def process_CXP(split, only_frontal):
     split['Age'] = np.where(split['Age'].between(0,19), 19, split['Age'])
     split['Age'] = np.where(split['Age'].between(20,39), 39, split['Age'])
     split['Age'] = np.where(split['Age'].between(40,59), 59, split['Age'])
@@ -84,7 +85,7 @@ def preprocess_CXP(split, only_frontal):
     return split[['subject_id','path','Sex',"Age", 'env', 'frontal','study_id'] + Constants.take_labels]
 
 
-def preprocess_PAD(split, only_frontal):
+def process_PAD(split, only_frontal):
     split['Age'] = np.where(split['Age'].between(0,19), 19, split['Age'])
     split['Age'] = np.where(split['Age'].between(20,39), 39, split['Age'])
     split['Age'] = np.where(split['Age'].between(40,59), 59, split['Age'])
@@ -108,14 +109,31 @@ def preprocess_PAD(split, only_frontal):
     split['env'] = 'PAD'
     return split[['subject_id','path','Sex',"Age", 'env', 'frontal','study_id'] + Constants.take_labels]
 
+
+def split(df, split_portions = (0.8, 0.9)):
+    subject_df = pd.DataFrame({'subject_id': np.sort(df['subject_id'].unique())})
+    subject_df['random_number'] = np.random.uniform(size=len(subject_df))
+
+    train_id = subject_df[subject_df['random_number'] <= split_portions[0]].drop(columns=['random_number'])
+    valid_id = subject_df[(subject_df['random_number'] > split_portions[0]) & (subject_df['random_number'] <= split_portions[1])].drop(columns=['random_number'])
+    test_id = subject_df[subject_df['random_number'] > split_portions[1]].drop(columns=['random_number'])
+
+    train_df = df[df.subject_id.isin(train_id.subject_id)]
+    valid_df = df[df.subject_id.isin(valid_id.subject_id)]
+    test_df = df[df.subject_id.isin(test_id.subject_id)]  
+
+    return train_df, valid_df, test_df
+
 def get_process_func(env):
     if env == 'MIMIC':
-        return preprocess_MIMIC
+        return process_MIMIC
     elif env == 'NIH':
-        return preprocess_NIH
+        return process_NIH
     elif env == 'CXP':
-        return preprocess_CXP
+        return process_CXP
     elif env == 'PAD':
-        return preprocess_PAD
+        return process_PAD
     else:
         raise NotImplementedError        
+
+

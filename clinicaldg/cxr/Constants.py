@@ -13,10 +13,8 @@ cache_dir = '/scratch/ssd001/home/haoran/projects/IRM_Clinical/cache'
 #-------------------------------------------
 
 df_paths = {
-    dataset: {
-        split: os.path.join(image_paths[dataset], 'clinicaldg_split', f'{split}.csv')
-        for split in ['train', 'val', 'test']
-    } for dataset in image_paths 
+    dataset: os.path.join(image_paths[dataset], 'clinicaldg', f'preprocessed.csv')
+    for dataset in image_paths 
 }
 
 take_labels = ['No Finding', 'Atelectasis', 'Cardiomegaly',  'Effusion',  'Pneumonia', 'Pneumothorax', 'Consolidation','Edema' ]

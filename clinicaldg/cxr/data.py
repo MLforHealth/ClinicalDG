@@ -9,8 +9,7 @@ import pickle
 from pathlib import Path
 from torch.utils.data import Dataset, ConcatDataset
 
-def get_dataset(envs = [], split = None, only_frontal = True, imagenet_norm = True, augment = 0, cache = False, subset_label = None,
-               augmented_dfs = None):
+def get_dataset(dfs_all, envs = [], split = None, only_frontal = True, imagenet_norm = True, augment = 0, cache = False, subset_label = None):
       
     if split in ['val', 'test']:
         assert(augment in [0, -1])
@@ -29,22 +28,16 @@ def get_dataset(envs = [], split = None, only_frontal = True, imagenet_norm = Tr
         image_transforms.append(transforms.Normalize(Constants.IMAGENET_MEAN, Constants.IMAGENET_STD))             
     
     datasets = []
-    for e in envs:
-        func = process.get_process_func(e)
-        paths = Constants.df_paths[e]
-        
+    for e in envs:        
         if split is not None:    
             splits = [split]
         else:
             splits = ['train', 'val', 'test']
             
-        if augmented_dfs is not None: # use provided dataframes for subsample augmentation
-            dfs = [augmented_dfs[e][i] for i in splits]
-        else:            
-            dfs = [func(pd.read_csv(paths[i]), only_frontal) for i in splits]            
+        dfs = [dfs_all[e][i] for i in splits]        
             
         for c, s in enumerate(splits):
-            cache_dir = Path(Constants.cache_dir)/ f'{e}_{s}/'
+            cache_dir = Path(Constants.cache_dir)/ f'{e}/'
             cache_dir.mkdir(parents=True, exist_ok=True)
             datasets.append(AllDatasetsShared(dfs[c], transform = transforms.Compose(image_transforms)
                                       , split = split, cache = cache, cache_dir = cache_dir, subset_label = subset_label)) 
@@ -58,7 +51,6 @@ def get_dataset(envs = [], split = None, only_frontal = True, imagenet_norm = Tr
         ds.dataframe = pd.concat([i.dataframe for i in datasets])
     
     return ds
-
 
 class AllDatasetsShared(Dataset):
     def __init__(self, dataframe, transform=None, split = None, cache = True, cache_dir = '', subset_label = None):

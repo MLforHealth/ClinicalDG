@@ -44,9 +44,9 @@ gsutil -m rsync -d -r gs://mimic-cxr-jpg-2.0.0.physionet.org MIMIC-CXR-JPG
 ## Data Processing
 1. In `clinicaldg/cxr/Constants.py`, update `image_paths` to point to each of the four directories that you downloaded.
 
-2. Run `python -m clinicaldg.cxr.preprocess.split`. For the Chest X-ray datasets, we use fixed 80/10/10 splits.
+2. Run `python -m clinicaldg.cxr.preprocess.preprocess`. 
 
-3. (Optional) If you are training a lot of models, it _might_ be faster to cache all images to binary 224x224 files on disk. In this case, you should update the `cache_dir` path in `clinicaldg/cxr/Constants.py` and then run `python -m clinicaldg.cxr.preprocess.cache_data`, potentially parallelizing over `--split {0,...,11}` for speed. To use the cached files, pass `--use_cache 1` to `train.py` or `sweep.py`.
+3. (Optional) If you are training a lot of models, it _might_ be faster to cache all images to binary 224x224 files on disk. In this case, you should update the `cache_dir` path in `clinicaldg/cxr/Constants.py` and then run `python -m clinicaldg.cxr.preprocess.cache_data`, optionally parallelizing over `--env_id {0, 1, 2, 3}` for speed. To use the cached files, pass `--use_cache 1` to `train.py` or `sweep.py`.
 
 
 # Colored MNIST
