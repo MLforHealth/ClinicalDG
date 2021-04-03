@@ -42,7 +42,8 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint_freq', type=int, default=None,
         help='Checkpoint every N steps. Default is dataset-dependent.')
     parser.add_argument('--output_dir', type=str, default="train_output")
-    parser.add_argument('--skip_model_save', action='store_true')
+    parser.add_argument('--delete_model', action = 'store_true', 
+        help = 'delete model weights after training to save disk space')
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -92,10 +93,13 @@ if __name__ == "__main__":
         ds_class.TRAIN_ENVS = training_envs
         ds_class.TEST_ENV = hparams['test_env']
         
-    if args.algorithm == 'ERMID': # benchmark ERM trained on the test env
+    if args.algorithm == 'ERMID': # ERM trained on the training subset of the test env
         ds_class.ENVIRONMENTS = [ds_class.TEST_ENV]
         ds_class.VAL_ENV = ds_class.TEST_ENV
         ds_class.TRAIN_ENVS = [ds_class.TEST_ENV]
+    elif args.algorithm == 'ERMMerged': # ERM trained on merged training subsets of all envs
+        ds_class.TRAIN_ENVS = ds_class.ENVIRONMENTS
+        ds_class.VAL_ENV = ds_class.TEST_ENV        
         
     print("Training Environments: " + str(ds_class.TRAIN_ENVS))
     print("Validation Environment: " + str(ds_class.VAL_ENV))
@@ -219,28 +223,29 @@ if __name__ == "__main__":
             
             es(-results['es_' + dataset.ES_METRIC], step, algorithm.state_dict(), os.path.join(args.output_dir, "model.pkl"))            
 
-    if not args.skip_model_save:
-        algorithm.load_state_dict(torch.load(os.path.join(args.output_dir, "model.pkl")))
-        algorithm.eval()
+    algorithm.load_state_dict(torch.load(os.path.join(args.output_dir, "model.pkl")))
+    algorithm.eval()
+    
+    save_dict = {
+        "args": vars(args),
+        "model_input_shape": dataset.input_shape,
+        "model_num_classes": dataset.num_classes,
+        "model_num_domains": len(dataset.TRAIN_ENVS),
+        "model_hparams": hparams,
+        "es_step": es.step,
+        'es_' + dataset.ES_METRIC: es.best_score
+    }
+    
+    final_results = {}         
+    for name, loader in test_loaders.items():
+        final_results.update(dataset.eval_metrics(algorithm, loader, name, weights = None, device = device))
         
-        save_dict = {
-            "args": vars(args),
-            "model_input_shape": dataset.input_shape,
-            "model_num_classes": dataset.num_classes,
-            "model_num_domains": len(dataset.TRAIN_ENVS),
-            "model_hparams": hparams,
-            "es_step": es.step,
-            'es_' + dataset.ES_METRIC: es.best_score
-        }
+    save_dict['test_results'] = final_results    
         
-        final_results = {}
-        # test                
-        for name, loader in test_loaders.items():
-            final_results.update(dataset.eval_metrics(algorithm, loader, name, weights = None, device = device))
-            
-        save_dict['test_results'] = final_results    
-            
-        torch.save(save_dict, os.path.join(args.output_dir, "stats.pkl"))    
+    torch.save(save_dict, os.path.join(args.output_dir, "stats.pkl"))    
 
     with open(os.path.join(args.output_dir, 'done'), 'w') as f:
         f.write('done')
+
+    if args.delete_model:
+        os.remove(os.path.join(args.output_dir, "model.pkl"))

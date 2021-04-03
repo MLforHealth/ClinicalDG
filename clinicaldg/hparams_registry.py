@@ -119,7 +119,7 @@ def _hparams(algorithm, dataset, random_seed):
         
         
     if dataset[:4] == 'eICU':
-        _hparam('lr', 1e-3, lambda r: 10**r.uniform(-4.5, -2.5))
+        _hparam('lr', 1e-3, lambda r: 10**r.uniform(-5.0, -2.5))
         _hparam('mlp_width', 128, lambda r: int(2 ** r.uniform(5, 8)))
         _hparam('mlp_depth', 4, lambda r: int(r.choice([2, 3, 4])))
         _hparam('mlp_dropout', 0., lambda r: r.choice([0., 0.1]))
@@ -129,11 +129,13 @@ def _hparams(algorithm, dataset, random_seed):
         _hparam('batch_size', 128) 
         
     elif dataset[:3] == 'CXR':    
-        _hparam('lr', 1e-3, lambda r: 10**r.uniform(-4.5, -2.5))
+        _hparam('lr', 5e-4, lambda r: 10**r.uniform(-5.0, -2.5))
         if algorithm in ['IGA', 'MLDG']:
             _hparam('batch_size', 12) 
         elif algorithm in ['MLDG']:
             _hparam('batch_size', 16) 
+        elif algorithm in ['ERMMerged']:
+            _hparam('batch_size', 24) 
         else:
             _hparam('batch_size', 32) 
 

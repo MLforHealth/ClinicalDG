@@ -15,6 +15,7 @@ from clinicaldg.lib.misc import random_pairs_of_minibatches
 ALGORITHMS = [
     'ERM',
     'ERMID', # ERM trained on the training subset of the test env
+    'ERMMerged', # ERM trained on merged training subsets of all envs
     'IRM',
     'GroupDRO',
     'Mixup',
@@ -108,6 +109,9 @@ class ERM(Algorithm):
 
 
 class ERMID(ERM):
+    pass
+
+class ERMMerged(ERM):
     pass
     
 class ARM(ERM):

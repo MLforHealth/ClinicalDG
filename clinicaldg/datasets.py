@@ -83,112 +83,6 @@ def binary_clf_metrics(preds, targets, grp, env_name, mask = None):
            env_name + '_parity_gap': parity_gap_opt,
            env_name + '_phi': phi_opt,}
 
-class ColoredMNIST():
-    '''
-    Hyperparameters:
-    cmnist_eta
-    cmnist_beta
-    cmnist_delta   
-    
-    '''
-    ENVIRONMENTS = ['e1', 'e2', 'val']
-    TRAIN_PCT = 0.7
-    VAL_PCT = 0.1
-    MAX_STEPS = 2000
-    N_WORKERS = 1
-    CHECKPOINT_FREQ = 10
-    ES_METRIC = 'acc'
-    ES_PATIENCE = 10 # * checkpoint_freq steps
-    
-    def __init__(self, hparams, args):
-        self.TRAIN_ENVS = ['e1', 'e2']
-        self.VAL_ENV = 'val'
-        self.TEST_ENV = 'val'
-        self.input_shape = (14*14*2, )
-        self.num_classes = 2
-        
-        mnist = MNIST(mnist_dir, train=True, download=True)
-        mnist_train = [mnist.data[:50000], mnist.targets[:50000]]
-        mnist_val = [mnist.data[50000:], mnist.targets[50000:]]
-        idx = np.random.permutation(range(len(mnist_train[1])))
-        
-        mnist_train[0] = mnist_train[0][idx]
-        mnist_train[1] = mnist_train[1][idx]
-        
-        eta, beta, delta = hparams['cmnist_eta'], hparams['cmnist_beta'], hparams['cmnist_delta']
-        
-        self.sets = {'e1': {
-                'images': mnist_train[0][::2],
-                'labels': mnist_train[1][::2]
-            },            
-            'e2':{
-                'images': mnist_train[0][1::2],
-                'labels': mnist_train[1][1::2]
-            },
-            'val':{
-                'images': mnist_val[0],
-                'labels': mnist_val[1]
-            }
-           }
-    
-        self.ps = {'e1': beta + (delta / 2),
-              'e2': beta - (delta / 2),
-              'val': 0.9}
-        
-        for s in self.sets:
-            imgs = self.sets[s]['images']
-            labels = self.sets[s]['labels']
-            # 2x subsample for computational convenience
-            imgs =  imgs.reshape((-1, 28, 28))[:, ::2, ::2]
-            imgs = torch.stack([imgs, imgs], dim = 1)        
-
-            labels = torch_xor((labels < 5).float(),
-                                          torch_bernoulli(eta, len(labels)))
-
-            colors = torch_xor(labels, torch_bernoulli(self.ps[s], len(labels)))
-            imgs[torch.tensor(range(len(imgs))), (1-colors).long(), :, :] *= 0
-
-            self.sets[s]['images'] = imgs.float()/255.
-            self.sets[s]['images'] = self.sets[s]['images'].reshape(self.sets[s]['images'].shape[0], -1)
-            self.sets[s]['labels'] = labels.squeeze().long()
-            
-
-    def get_torch_dataset(self, envs, dset):
-        '''
-        envs: a list of region names
-        dset: split within envs, one of ['train', 'val', 'test']
-        '''
-        
-        datasets = []
-        
-        for e in envs:
-            xall = self.sets[e]['images']
-            if e in self.TRAIN_ENVS:
-                if dset == 'train':
-                    idx_start, idx_end = 0, int(len(xall) * self.TRAIN_PCT)
-                elif dset == 'val':
-                    idx_start, idx_end = int(len(xall) * self.TRAIN_PCT), int(len(xall) * (self.TRAIN_PCT + self.VAL_PCT))
-                elif dset == 'test':
-                    idx_start, idx_end = int(len(xall) * (self.TRAIN_PCT + self.VAL_PCT)), len(xall)
-                else:
-                    raise NotImplementedError
-                    
-            elif e == self.VAL_ENV: # on validation environment, use 50% for validation and 50% for test
-                if dset == 'val':
-                    idx_start, idx_end = 0, int(len(xall) * (0.5))
-                elif dset == 'test':
-                    idx_start, idx_end = int(len(xall) * (0.5)), len(xall)
-                else:
-                    raise NotImplementedError
-                    
-            datasets.append(TensorDataset(xall[idx_start:idx_end], self.sets[e]['labels'][idx_start:idx_end])) 
-            
-        return ConcatDataset(datasets)      
-    
-    def eval_metrics(self, algorithm, loader, env_name, weights, device):
-        return {env_name + '_acc' : misc.accuracy(algorithm, loader, weights = None, device = device)}
-    
-    
 class eICUBase():
     '''
     Base hyperparameters:
@@ -207,7 +101,7 @@ class eICUBase():
     TEST_ENV = 'South'
     num_classes = 2
     input_shape = None
-    ES_PATIENCE = 5 # * checkpoint_freq steps
+    ES_PATIENCE = 7 # * checkpoint_freq steps
     
     def predict_on_set(self, algorithm, loader, device):
         preds, targets, genders = [], [], []
@@ -325,7 +219,7 @@ class CXRBase():
     '''
     ENVIRONMENTS = ['MIMIC', 'CXP', 'NIH', 'PAD']
     MAX_STEPS = 20000
-    N_WORKERS = 4
+    N_WORKERS = 2
     CHECKPOINT_FREQ = 100
     ES_METRIC = 'roc'
     input_shape = None
@@ -333,7 +227,7 @@ class CXRBase():
     TRAIN_ENVS = ['MIMIC', 'CXP']
     VAL_ENV = 'NIH'
     TEST_ENV = 'PAD'    
-    NUM_SAMPLES_VAL = 1024*4 # use a subset of the validation set for early stopping
+    NUM_SAMPLES_VAL = 1024*8 # use a subset of the validation set for early stopping
     
     def __init__(self, hparams, args):
         self.hparams = hparams
@@ -459,16 +353,120 @@ class CXRSubsampleObs(CXRSubsampleUnobs):
         augment = 0 if dset in ['val', 'test'] else self.hparams['cxr_augment']    
         return GenderConcatDataset(cxrData.get_dataset(self.dfs, envs = envs, split = dset, 
                                   imagenet_norm = True, only_frontal = True, augment = augment, cache = self.use_cache,
-                                  subset_label = 'Pneumonia', augmented_dfs = self.dfs))    
-        
-        
+                                  subset_label = 'Pneumonia'))    
 
+        
+class ColoredMNIST():
+    '''
+    Hyperparameters:
+    cmnist_eta
+    cmnist_beta
+    cmnist_delta   
+    
+    '''
+    ENVIRONMENTS = ['e1', 'e2', 'val']
+    TRAIN_PCT = 0.7
+    VAL_PCT = 0.1
+    MAX_STEPS = 1500
+    N_WORKERS = 1
+    CHECKPOINT_FREQ = 500 # large value to avoid test env overfitting
+    ES_METRIC = 'acc'
+    ES_PATIENCE = 10 # no early stopping for CMNIST to avoid test env overfitting
+    
+    def __init__(self, hparams, args):
+        self.TRAIN_ENVS = ['e1', 'e2']
+        self.VAL_ENV = 'val'
+        self.TEST_ENV = 'val'
+        self.input_shape = (14*14*2, )
+        self.num_classes = 2
+        
+        mnist = MNIST(mnist_dir, train=True, download=True)
+        mnist_train = [mnist.data[:50000], mnist.targets[:50000]]
+        mnist_val = [mnist.data[50000:], mnist.targets[50000:]]
+        idx = np.random.permutation(range(len(mnist_train[1])))
+        
+        mnist_train[0] = mnist_train[0][idx]
+        mnist_train[1] = mnist_train[1][idx]
+        
+        eta, beta, delta = hparams['cmnist_eta'], hparams['cmnist_beta'], hparams['cmnist_delta']
+        
+        self.sets = {'e1': {
+                'images': mnist_train[0][::2],
+                'labels': mnist_train[1][::2]
+            },            
+            'e2':{
+                'images': mnist_train[0][1::2],
+                'labels': mnist_train[1][1::2]
+            },
+            'val':{
+                'images': mnist_val[0],
+                'labels': mnist_val[1]
+            }
+           }
+    
+        self.ps = {'e1': beta + (delta / 2),
+              'e2': beta - (delta / 2),
+              'val': 0.9}
+        
+        for s in self.sets:
+            imgs = self.sets[s]['images']
+            labels = self.sets[s]['labels']
+            # 2x subsample for computational convenience
+            imgs =  imgs.reshape((-1, 28, 28))[:, ::2, ::2]
+            imgs = torch.stack([imgs, imgs], dim = 1)        
+
+            labels = torch_xor((labels < 5).float(),
+                                          torch_bernoulli(eta, len(labels)))
+
+            colors = torch_xor(labels, torch_bernoulli(self.ps[s], len(labels)))
+            imgs[torch.tensor(range(len(imgs))), (1-colors).long(), :, :] *= 0
+
+            self.sets[s]['images'] = imgs.float()/255.
+            self.sets[s]['images'] = self.sets[s]['images'].reshape(self.sets[s]['images'].shape[0], -1)
+            self.sets[s]['labels'] = labels.squeeze().long()
+            
+
+    def get_torch_dataset(self, envs, dset):
+        '''
+        envs: a list of region names
+        dset: split within envs, one of ['train', 'val', 'test']
+        '''
+        
+        datasets = []
+        
+        for e in envs:
+            xall = self.sets[e]['images']
+            if e in self.TRAIN_ENVS:
+                if dset == 'train':
+                    idx_start, idx_end = 0, int(len(xall) * self.TRAIN_PCT)
+                elif dset == 'val':
+                    idx_start, idx_end = int(len(xall) * self.TRAIN_PCT), int(len(xall) * (self.TRAIN_PCT + self.VAL_PCT))
+                elif dset == 'test':
+                    idx_start, idx_end = int(len(xall) * (self.TRAIN_PCT + self.VAL_PCT)), len(xall)
+                else:
+                    raise NotImplementedError
+                    
+            elif e == self.VAL_ENV: # on validation environment, use 50% for validation and 50% for test
+                if dset == 'val':
+                    idx_start, idx_end = 0, int(len(xall) * (0.5))
+                elif dset == 'test':
+                    idx_start, idx_end = int(len(xall) * (0.5)), len(xall)
+                else:
+                    raise NotImplementedError
+                    
+            datasets.append(TensorDataset(xall[idx_start:idx_end], self.sets[e]['labels'][idx_start:idx_end])) 
+            
+        return ConcatDataset(datasets)      
+    
+    def eval_metrics(self, algorithm, loader, env_name, weights, device):
+        return {env_name + '_acc' : misc.accuracy(algorithm, loader, weights = None, device = device)}
+    
+    
 def get_dataset_class(dataset_name):
     """Return the dataset class with the given name."""
     if dataset_name not in globals():
         raise NotImplementedError("Dataset not found: {}".format(dataset_name))
     return globals()[dataset_name]
-
 
 def num_environments(dataset_name):
     return len(get_dataset_class(dataset_name).ENVIRONMENTS)

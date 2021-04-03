@@ -32,7 +32,7 @@ class Job:
     INCOMPLETE = 'Incomplete'
     DONE = 'Done'
 
-    def __init__(self, train_args, sweep_output_dir, slurm_pre):
+    def __init__(self, train_args, sweep_output_dir, slurm_pre, delete_model = False):
         args_str = json.dumps(train_args, sort_keys=True)
         args_hash = hashlib.md5(args_str.encode('utf-8')).hexdigest()
         self.output_dir = os.path.join(sweep_output_dir, args_hash)
@@ -46,6 +46,8 @@ class Job:
             elif isinstance(v, str):
                 v = shlex.quote(v)
             command.append(f'--{k} {v}')
+        if delete_model:
+            command.append('--delete_model')
         self.command_str = ' '.join(command)
         if slurm_pre is not None:
             self.command_str = f'sbatch {slurm_pre} --wrap "{self.command_str}"'
@@ -126,7 +128,6 @@ def ask_for_confirmation():
         print('Nevermind!')
         exit(0)
 
-
 DATASETS = [d for d in datasets.DATASETS if "Debug" not in d]
 
 if __name__ == "__main__":
@@ -140,10 +141,12 @@ if __name__ == "__main__":
     parser.add_argument('--n_hparams', type=int, default=20)
     parser.add_argument('--output_dir', type=str, required=True)
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--n_trials', type=int, default=3)
+    parser.add_argument('--n_trials', type=int, default=5)
     parser.add_argument('--command_launcher', type=str, required=True)
     parser.add_argument('--steps', type=int, default=None)
     parser.add_argument('--hparams', type=str, default=None)
+    parser.add_argument('--delete_model', action = 'store_true', 
+        help = 'delete model weights after training to save disk space')
     parser.add_argument('--skip_confirmation', action='store_true')
     parser.add_argument('--slurm_pre', type=str, required=False)
     args = parser.parse_args()
@@ -158,7 +161,7 @@ if __name__ == "__main__":
         es_method=args.es_method
     )
 
-    jobs = [Job(train_args, args.output_dir, args.slurm_pre)
+    jobs = [Job(train_args, args.output_dir, args.slurm_pre, args.delete_model)
             for train_args in args_list]
 
     for job in jobs:
