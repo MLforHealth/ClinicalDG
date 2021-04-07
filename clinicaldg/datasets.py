@@ -133,7 +133,7 @@ class eICU(eICUBase):
     def __init__(self, hparams, args):
         super().__init__()
         self.d = eicuData.AugmentedDataset(self.TRAIN_ENVS, self.VAL_ENV, self.TEST_ENV, [], train_pct = eICUBase.TRAIN_PCT, 
-                                           val_pct = eICUBase.VAL_PCT, split_test_env = (args.algorithm == 'ERMID' or args.es_method == 'test'))   
+                                           val_pct = eICUBase.VAL_PCT, split_test_env = (args.algorithm in ['ERMID', 'ERMMerged'] or args.es_method == 'test'))   
         
         
 class eICUCorrLabel(eICUBase):    
@@ -151,7 +151,7 @@ class eICUCorrLabel(eICUBase):
                               hparams['corr_label_train_corrupt_mean'], hparams['corr_label_val_corrupt'], 
                               hparams['corr_label_test_corrupt'], 'corr_label')], 
                        train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT, 
-                                           split_test_env = (args.algorithm == 'ERMID' or args.es_method == 'test'))  
+                                           split_test_env = (args.algorithm in ['ERMID', 'ERMMerged'] or args.es_method == 'test'))  
         
         eicuConstants.static_cont_features.append('corr_label')
         
@@ -170,7 +170,7 @@ class eICUSubsampleObs(eICUBase):
                                            [eicuAugmentations.Subsample(hparams['subsample_g1_mean'], hparams['subsample_g2_mean'],
                                                 hparams['subsample_g1_dist'], hparams['subsample_g2_dist'])], 
                        train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT, 
-                                           split_test_env = (args.algorithm == 'ERMID' or args.es_method == 'test'))     
+                                           split_test_env = (args.algorithm in ['ERMID', 'ERMMerged'] or args.es_method == 'test'))     
         
         
 class eICUSubsampleUnobs(eICUSubsampleObs):    
@@ -201,14 +201,12 @@ class eICUCorrNoise(eICUBase):
         if hparams['corr_noise_feature'] in eicuConstants.ts_cat_features:   # GCS Total     
             eicuConstants.ts_cat_features.remove(hparams['corr_noise_feature'])
             eicuConstants.ts_cont_features.append(hparams['corr_noise_feature'])
-                
-        std = hparams['corr_noise_std'] if 'corr_noise_std' in hparams else 0.5
-        
+                        
         self.d = eicuData.AugmentedDataset(self.TRAIN_ENVS, self.VAL_ENV, self.TEST_ENV,
                                            [eicuAugmentations.GaussianNoise(hparams['corr_noise_train_corrupt_dist'], hparams['corr_noise_train_corrupt_mean'], 
-                                           hparams['corr_noise_val_corrupt'], hparams['corr_noise_test_corrupt'], std = std, feat_name = hparams['corr_noise_feature'])], 
+                                           hparams['corr_noise_val_corrupt'], hparams['corr_noise_test_corrupt'], std = hparams['corr_noise_std'], feat_name = hparams['corr_noise_feature'])], 
                        train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT, 
-                                           split_test_env = (args.algorithm == 'ERMID' or args.es_method == 'test'))          
+                                           split_test_env = (args.algorithm in ['ERMID', 'ERMMerged'] or args.es_method == 'test'))          
         
 
 class CXRBase():
@@ -219,7 +217,7 @@ class CXRBase():
     '''
     ENVIRONMENTS = ['MIMIC', 'CXP', 'NIH', 'PAD']
     MAX_STEPS = 20000
-    N_WORKERS = 2
+    N_WORKERS = 1
     CHECKPOINT_FREQ = 100
     ES_METRIC = 'roc'
     input_shape = None
@@ -372,14 +370,13 @@ class ColoredMNIST():
     CHECKPOINT_FREQ = 500 # large value to avoid test env overfitting
     ES_METRIC = 'acc'
     ES_PATIENCE = 10 # no early stopping for CMNIST to avoid test env overfitting
+    TRAIN_ENVS = ['e1', 'e2']
+    VAL_ENV = 'val'
+    TEST_ENV = 'val'
+    input_shape = (14*14*2, )
+    num_classes = 2
     
-    def __init__(self, hparams, args):
-        self.TRAIN_ENVS = ['e1', 'e2']
-        self.VAL_ENV = 'val'
-        self.TEST_ENV = 'val'
-        self.input_shape = (14*14*2, )
-        self.num_classes = 2
-        
+    def __init__(self, hparams, args):        
         mnist = MNIST(mnist_dir, train=True, download=True)
         mnist_train = [mnist.data[:50000], mnist.targets[:50000]]
         mnist_val = [mnist.data[50000:], mnist.targets[50000:]]

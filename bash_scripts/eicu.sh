@@ -13,11 +13,12 @@ for es_method in train val; do
         --output_dir "/scratch/ssd001/home/haoran/clinicaldg_results/eICU" \
         --command_launcher "slurm" \
         --n_trials 5 \
-        --algorithms ERMID ERM IRM VREx RVP CORAL MLDG GroupDRO \
+        --algorithms ERMID ERMMerged ERM IRM VREx RVP CORAL IGA MLDG GroupDRO \
         --datasets eICU \
         --n_hparams 10 \
         --slurm_pre "${slurm_pre}" \
         --es_method "${es_method}" \
         --hparams "${hparams}" \
-        --skip_confirmation
+        --skip_confirmation \
+        --delete_model
 done

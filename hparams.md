@@ -43,7 +43,7 @@ The following table shows the list of parameters that can be passed as part of t
 | `cxr_augment`                   | `CXR*`                | {0, 1}          | Whether to use simple geometric image augmentations during training                 | 1                 |
 | `use_cache`                     | `CXR*`                | {0, 1}          | Whether to load images from pre-cached binaries, or directly from downloaded images | N/A               |
 | `cmnist_eta`                    | `ColoredMNIST`        |    [0, 1]             |        η from Appendix B.1 of the paper                                                                                               |    [0, 0.5]               |
-| `cmnist_beta`                   | `ColoredMNIST`        |   [0, 1]              |    β from Appendix B.1 of the paper                                                                                                  |   [0, 0.3]                |
-| `cmnist_delta`                  | `ColoredMNIST`        |       [0, 1]          |    𝛿 from Appendix B.1 of the paper                                                                                                    |     [0, 0.5]              |
+| `cmnist_beta`                   | `ColoredMNIST`        |   [0, 1]              |    β from Appendix B.1 of the paper                                                                                                  |   [0.05, 0.5]                |
+| `cmnist_delta`                  | `ColoredMNIST`        |       [0, 1]          |    𝛿 from Appendix B.1 of the paper                                                                                                    |     [0, 0.3]              |
 
 
