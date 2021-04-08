@@ -1,7 +1,18 @@
 # An Empirical Framework for Domain Generalization In Clinical Settings
 
 ## Paper
-If you use this code in your research, please cite our [arXiv paper](https://arxiv.org/abs/2103.11163). 
+If you use this code in your research, please cite the following publication:
+```
+@inproceedings{zhang2021empirical,
+  title={An empirical framework for domain generalization in clinical settings},
+  author={Zhang, Haoran and Dullerud, Natalie and Seyyed-Kalantari, Laleh and Morris, Quaid and Joshi, Shalmali and Ghassemi, Marzyeh},
+  booktitle={Proceedings of the Conference on Health, Inference, and Learning},
+  pages={279--290},
+  year={2021}
+}
+```
+
+This paper can also be found on arxiv: https://arxiv.org/abs/2103.11163 
 
 
 ## Acknowledgements
