@@ -1,6 +1,6 @@
 # Datasets
 
-The following table shows how the dataset parameter (which is passed to `--dataset` in `train.py` or `sweep.py`) maps to the datasets described in the paper.
+The following table shows how the dataset parameter (which is passed to `--dataset` in `train.py` or `--datasets` in `sweep.py`) maps to the datasets described in the paper.
 
 | Parameter Value           | Dataset         | Synthetic Shift |
 |--------------------|-----------------|-----------------|
@@ -20,7 +20,7 @@ The following table shows how the dataset parameter (which is passed to `--datas
 
 # Data Hyperparameters
 
-The following table shows the list of parameters that can be passed as part of the JSON encoded dictionary to the `--hparam` argument in `train.py` or `sweep.py`. Hyperparameters not explicitly specified during training will default to (one of) their paper values.
+The following table shows the list of parameters that can be passed as part of the JSON encoded dictionary to the `--hparams` argument in `train.py` or `sweep.py`. Hyperparameters not explicitly specified during training will default to (one of) their paper values.
 
 
 | hparam                        | Applicable Datasets | Possible Values | Description                                                                          | Paper Value(s)    |
