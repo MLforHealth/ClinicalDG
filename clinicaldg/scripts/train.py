@@ -86,31 +86,31 @@ if __name__ == "__main__":
     else:
         device = "cpu"
         
-    ds_class = vars(datasets)[args.dataset]    
-        
-    if 'test_env' in hparams: # manually override test environment, keep val env the same
-        training_envs = [i for i in ds_class.ENVIRONMENTS if i not in [ds_class.VAL_ENV, hparams['test_env']]]
-        ds_class.TRAIN_ENVS = training_envs
-        ds_class.TEST_ENV = hparams['test_env']
-        
-    if args.algorithm == 'ERMID': # ERM trained on the training subset of the test env
-        ds_class.ENVIRONMENTS = [ds_class.TEST_ENV]
-        ds_class.VAL_ENV = ds_class.TEST_ENV
-        ds_class.TRAIN_ENVS = [ds_class.TEST_ENV]
-    elif args.algorithm == 'ERMMerged': # ERM trained on merged training subsets of all envs
-        ds_class.TRAIN_ENVS = ds_class.ENVIRONMENTS
-        ds_class.VAL_ENV = ds_class.TEST_ENV        
-        
-    print("Training Environments: " + str(ds_class.TRAIN_ENVS))
-    print("Validation Environment: " + str(ds_class.VAL_ENV))
-    print("Test Environment: " + str(ds_class.TEST_ENV))
+    ds_class = vars(datasets)[args.dataset]                    
 
     if args.dataset in vars(datasets):
         dataset = ds_class(hparams, args)
     else:
         raise NotImplementedError
+    
+    if args.algorithm == 'ERMID': # ERM trained on the training subset of the test env
+        TRAIN_ENVS = [ds_class.TEST_ENV]
+        VAL_ENV = ds_class.TEST_ENV
+        TEST_ENV = ds_class.TEST_ENV
+    elif args.algorithm == 'ERMMerged': # ERM trained on merged training subsets of all envs
+        TRAIN_ENVS = ds_class.ENVIRONMENTS
+        VAL_ENV = ds_class.TEST_ENV  
+        TEST_ENV = ds_class.TEST_ENV
+    else:
+        TRAIN_ENVS = ds_class.TRAIN_ENVS
+        VAL_ENV = ds_class.VAL_ENV  
+        TEST_ENV = ds_class.TEST_ENV
+        
+    print("Training Environments: " + str(TRAIN_ENVS))
+    print("Validation Environment: " + str(VAL_ENV))
+    print("Test Environment: " + str(TEST_ENV))    
   
-    train_dss = [dataset.get_torch_dataset([env], 'train') for env in dataset.TRAIN_ENVS]
+    train_dss = [dataset.get_torch_dataset([env], 'train') for env in TRAIN_ENVS]
     
     train_loaders = [InfiniteDataLoader(
         dataset=i,
@@ -121,11 +121,11 @@ if __name__ == "__main__":
         ]
     
     if args.es_method == 'val':
-        val_ds = dataset.get_torch_dataset([dataset.VAL_ENV], 'val')
+        val_ds = dataset.get_torch_dataset([VAL_ENV], 'val')
     elif args.es_method == 'train':
-        val_ds = dataset.get_torch_dataset(dataset.TRAIN_ENVS, 'val')
+        val_ds = dataset.get_torch_dataset(TRAIN_ENVS, 'val')
     elif args.es_method == 'test':
-        val_ds = dataset.get_torch_dataset([dataset.TEST_ENV], 'val')
+        val_ds = dataset.get_torch_dataset([TEST_ENV], 'val')
         
     if hasattr(dataset, 'NUM_SAMPLES_VAL'):
         val_ds = torch.utils.data.Subset(val_ds, np.random.choice(np.arange(len(val_ds)), min(dataset.NUM_SAMPLES_VAL, len(val_ds)), replace = False))
@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
     algorithm_class = algorithms.get_algorithm_class(args.algorithm)
     algorithm = algorithm_class(dataset.input_shape, dataset.num_classes,
-        len(dataset.TRAIN_ENVS), hparams, args.dataset, dataset)
+        len(TRAIN_ENVS), hparams, args.dataset, dataset)
 
     algorithm.to(device)
     
@@ -230,7 +230,9 @@ if __name__ == "__main__":
         "args": vars(args),
         "model_input_shape": dataset.input_shape,
         "model_num_classes": dataset.num_classes,
-        "model_num_domains": len(dataset.TRAIN_ENVS),
+        "model_train_domains": TRAIN_ENVS,
+        "model_val_domain": VAL_ENV,
+        "model_test_domains": TEST_ENV,
         "model_hparams": hparams,
         "es_step": es.step,
         'es_' + dataset.ES_METRIC: es.best_score

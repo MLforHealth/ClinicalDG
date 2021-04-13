@@ -139,7 +139,6 @@ def _hparams(algorithm, dataset, random_seed):
         else:
             _hparam('batch_size', 32) 
 
-
     # data hyperparameters
     _hparam('eicu_architecture', "GRU")
     _hparam('corr_label_train_corrupt_dist', 0.1)

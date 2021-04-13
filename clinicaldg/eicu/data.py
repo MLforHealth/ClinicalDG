@@ -32,29 +32,19 @@ class LabelEncoderExt(object):
         return self.label_encoder.transform(data_list)
 
 class AugmentedDataset():
-    def __init__(self, train_envs, val_env, test_env, augs = [], train_pct = 0.7, val_pct = 0.1, split_test_env = False):
-        self.envs = {
-            'train': train_envs,
-            'val': [val_env],
-            'test': [test_env]
-        }
-        
-        self.reg_mort, self.reg_pat, self.scalers, self.labelencoders = self._get_mortality_data(train_pct, val_pct, split_test_env)   
+    def __init__(self, augs = [], train_pct = 0.7, val_pct = 0.1):        
+        self.reg_mort, self.reg_pat, self.scalers, self.labelencoders = self._get_mortality_data(train_pct, val_pct)   
         for a in augs:
-            a.augment(self.reg_mort, self.reg_pat, self.envs)        
+            a.augment(self.reg_mort, self.reg_pat)        
     
-    def get_torch_dataset(self, env, dset):
+    def get_torch_dataset(self, envs, dset):
         '''
-        env: a list of region names, or one of ['train', 'val', 'test']
+        envs: a list of region names
         dset: one of ['train', 'val', 'test']. For the test environment, use "test" for dset
         '''
-        if env in ['train', 'val', 'test']:
-            regions = self.envs[env]
-        else:
-            regions = env
         
         datasets = []
-        for r in regions:
+        for r in envs:
             datasets.append(eICUDataset(self.reg_mort[r][self.reg_mort[r]['fold'] == dset], self.reg_pat[r][self.reg_pat[r]['fold'] == dset]))
         
         return ConcatDataset(datasets)        
@@ -64,27 +54,18 @@ class AugmentedDataset():
                 {i: len(self.labelencoders[i].classes_) for i in Constants.static_cat_features}, 
                )    
     
-    def _get_mortality_data(self, train_pct, val_pct, split_test_env):
+    def _get_mortality_data(self, train_pct, val_pct):
         mort_df = data_extraction_mortality(str(Constants.benchmark_dir))
 
         targets = mort_df.groupby('patientunitstayid').agg({'hospitaldischargestatus': 'first'}).reset_index()
         pat_df = pd.merge(patients, hospitals, on = 'hospitalid', how = 'left')
         pat_df = pd.merge(pat_df, targets, on = 'patientunitstayid', how = 'inner').rename(columns = {'hospitaldischargestatus': 'target'})
                 
-        pat_df = pat_df[pat_df.patientunitstayid.isin(mort_df.patientunitstayid)].sample(frac = 1)  # shuffle
-        # train test split in each env        
+        pat_df = pat_df[pat_df.patientunitstayid.isin(mort_df.patientunitstayid)].sample(frac = 1)  # shuffle     
         pat_df['fold'] = ''
         pat_df['fold'].iloc[:int(len(pat_df)*train_pct)] = 'train'
         pat_df['fold'].iloc[int(len(pat_df)*train_pct):int(len(pat_df)*(train_pct + val_pct))] = 'val'
         pat_df['fold'].iloc[int(len(pat_df)*(train_pct + val_pct)):] = 'test'
-                 
-        if not split_test_env:
-            for reg in self.envs['val']:
-                # validation environment not used for training
-                pat_df.loc[(pat_df.region == reg) & (pat_df.fold == 'train'), 'fold'] = 'val' 
-
-            for reg in self.envs['test']:
-                pat_df.loc[pat_df.region == reg, 'fold'] = 'test' # everything in test environment is used for test
 
         mort_df = mort_df.merge(pat_df[['patientunitstayid', 'fold']], on = 'patientunitstayid')
         
@@ -103,8 +84,7 @@ class AugmentedDataset():
             mort_df[back_col] = mort_df[back_col].fillna(method = 'backfill')   
 
         for feat, val in Constants.normal_values.items():
-            mort_df[feat] = mort_df[feat].fillna(val)   
-            
+            mort_df[feat] = mort_df[feat].fillna(val)               
             
         # scale continuous and static ts features
         scalers = {}    

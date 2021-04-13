@@ -190,7 +190,7 @@ if __name__ == "__main__":
         Job.delete(to_delete)
 
     elif args.command == 'delete_all':
-        to_delete = [j for j in jobs]
+        to_delete = [j for j in jobs if j.state == Job.INCOMPLETE or j.state == job.DONE]
         print(f'About to delete {len(to_delete)} jobs.')
         if not args.skip_confirmation:
             ask_for_confirmation()

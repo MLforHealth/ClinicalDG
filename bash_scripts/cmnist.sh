@@ -31,7 +31,7 @@ for hparams in "${lst_hparams[@]}"; do
             --output_dir "/scratch/ssd001/home/haoran/clinicaldg_results/CMNIST" \
             --command_launcher "slurm" \
             --n_trials 5 \
-            --algorithms ERMID ERMMerged ERM IRM VREx IGA RVP GroupDRO CORAL MLDG  \
+            --algorithms ERM IRM VREx IGA RVP GroupDRO CORAL MLDG  \
             --datasets ColoredMNIST \
             --n_hparams 20 \
             --slurm_pre "${slurm_pre}" \

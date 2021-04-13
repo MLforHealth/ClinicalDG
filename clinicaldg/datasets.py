@@ -79,7 +79,7 @@ def binary_clf_metrics(preds, targets, grp, env_name, mask = None):
     return {env_name + '_roc': roc_auc_score(targets, preds),
            env_name + '_acc': accuracy_score(targets, preds_rounded_opt),
            env_name + '_tpr_gap': tpr_gap_opt,
-           env_name + '_tnr_gaps': tnr_gap_opt,
+           env_name + '_tnr_gap': tnr_gap_opt,
            env_name + '_parity_gap': parity_gap_opt,
            env_name + '_phi': phi_opt,}
 
@@ -132,8 +132,8 @@ class eICUBase():
 class eICU(eICUBase): 
     def __init__(self, hparams, args):
         super().__init__()
-        self.d = eicuData.AugmentedDataset(self.TRAIN_ENVS, self.VAL_ENV, self.TEST_ENV, [], train_pct = eICUBase.TRAIN_PCT, 
-                                           val_pct = eICUBase.VAL_PCT, split_test_env = (args.algorithm in ['ERMID', 'ERMMerged'] or args.es_method == 'test'))   
+        self.d = eicuData.AugmentedDataset([], train_pct = eICUBase.TRAIN_PCT, 
+                                           val_pct = eICUBase.VAL_PCT)   
         
         
 class eICUCorrLabel(eICUBase):    
@@ -146,12 +146,10 @@ class eICUCorrLabel(eICUBase):
     '''
     def __init__(self, hparams, args):
         super().__init__()
-        self.d = eicuData.AugmentedDataset(self.TRAIN_ENVS, self.VAL_ENV, self.TEST_ENV,
-                                           [eicuAugmentations.AddCorrelatedFeature(hparams['corr_label_train_corrupt_dist'], 
+        self.d = eicuData.AugmentedDataset([eicuAugmentations.AddCorrelatedFeature(hparams['corr_label_train_corrupt_dist'], 
                               hparams['corr_label_train_corrupt_mean'], hparams['corr_label_val_corrupt'], 
                               hparams['corr_label_test_corrupt'], 'corr_label')], 
-                       train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT, 
-                                           split_test_env = (args.algorithm in ['ERMID', 'ERMMerged'] or args.es_method == 'test'))  
+                       train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT)  
         
         eicuConstants.static_cont_features.append('corr_label')
         
@@ -166,11 +164,9 @@ class eICUSubsampleObs(eICUBase):
     '''
     def __init__(self, hparams, args):
         super().__init__()
-        self.d = eicuData.AugmentedDataset(self.TRAIN_ENVS, self.VAL_ENV, self.TEST_ENV,
-                                           [eicuAugmentations.Subsample(hparams['subsample_g1_mean'], hparams['subsample_g2_mean'],
+        self.d = eicuData.AugmentedDataset([eicuAugmentations.Subsample(hparams['subsample_g1_mean'], hparams['subsample_g2_mean'],
                                                 hparams['subsample_g1_dist'], hparams['subsample_g2_dist'])], 
-                       train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT, 
-                                           split_test_env = (args.algorithm in ['ERMID', 'ERMMerged'] or args.es_method == 'test'))     
+                       train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT)     
         
         
 class eICUSubsampleUnobs(eICUSubsampleObs):    
@@ -202,11 +198,9 @@ class eICUCorrNoise(eICUBase):
             eicuConstants.ts_cat_features.remove(hparams['corr_noise_feature'])
             eicuConstants.ts_cont_features.append(hparams['corr_noise_feature'])
                         
-        self.d = eicuData.AugmentedDataset(self.TRAIN_ENVS, self.VAL_ENV, self.TEST_ENV,
-                                           [eicuAugmentations.GaussianNoise(hparams['corr_noise_train_corrupt_dist'], hparams['corr_noise_train_corrupt_mean'], 
+        self.d = eicuData.AugmentedDataset([eicuAugmentations.GaussianNoise(hparams['corr_noise_train_corrupt_dist'], hparams['corr_noise_train_corrupt_mean'], 
                                            hparams['corr_noise_val_corrupt'], hparams['corr_noise_test_corrupt'], std = hparams['corr_noise_std'], feat_name = hparams['corr_noise_feature'])], 
-                       train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT, 
-                                           split_test_env = (args.algorithm in ['ERMID', 'ERMMerged'] or args.es_method == 'test'))          
+                       train_pct = eICUBase.TRAIN_PCT, val_pct = eICUBase.VAL_PCT)          
         
 
 class CXRBase():

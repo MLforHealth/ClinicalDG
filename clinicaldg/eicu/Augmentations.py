@@ -8,15 +8,14 @@ def corrupt(col, p):
 
 def compute_subsample_probability(subset_df, desired_prob, target_name = 'target'):
     pos = subset_df[target_name].sum()
-    neg = len(subset_df) - pos
     cur_pos = pos/len(subset_df)
 
     if cur_pos >= desired_prob:            
-        desired_pos = neg * desired_prob/(1 - desired_prob)
-        return (1,  1 - desired_pos/pos) # subsample positive samples
+        p = 1 - (1 - cur_pos)/cur_pos * (desired_prob)/(1-desired_prob)
+        return (1,  p) # subsample positive samples
     else:
-        desired_neg = pos * (1 - desired_prob)/(desired_prob)
-        return (0,  1 - desired_neg/neg) # subsample negative samples
+        p =  1 - cur_pos/(1-cur_pos) * (1-desired_prob)/(desired_prob)
+        return (0,  p) # subsample negative samples
     
 def aug_f(grp, target, brackets):    
     a,b = brackets[grp]
@@ -27,32 +26,33 @@ def aug_f(grp, target, brackets):
                 
 class AddCorrelatedFeature():
     def __init__(self, train_corrupt_dist, train_corrupt_mean, val_corrupt, test_corrupt, feat_name):
-        self.train_corrupt_dist = train_corrupt_dist
-        self.train_corrupt_mean = train_corrupt_mean
-        self.val_corrupt = val_corrupt
-        self.test_corrupt = test_corrupt
         self.feat_name = feat_name
         
-        self.train_corrupts = [train_corrupt_mean - train_corrupt_dist, train_corrupt_mean,
-                      train_corrupt_mean + train_corrupt_dist]        
-        assert(all([i >=0 for i in self.train_corrupts]))
-    
-    def augment(self, reg_mort, reg_pat, envs):
-        if len(envs['train']) == 1: # in-distribution exp
-            reg_pat[envs['test'][0]][self.feat_name] = corrupt(reg_pat[envs['test'][0]]['target'], self.test_corrupt).astype(float)
-        else:
-            for i, p in zip(envs['train'], self.train_corrupts):
-                reg_pat[i][self.feat_name] = corrupt(reg_pat[i]['target'], p)
+        self.corrupts = {datasets.eICU.TRAIN_ENVS[0]: train_corrupt_mean - train_corrupt_dist, 
+                    datasets.eICU.TRAIN_ENVS[1]:train_corrupt_mean,
+                      datasets.eICU.TRAIN_ENVS[2]: train_corrupt_mean + train_corrupt_dist,
+                      datasets.eICU.VAL_ENV: val_corrupt,
+                      datasets.eICU.TEST_ENV: test_corrupt}   
 
-            reg_pat[envs['val'][0]][self.feat_name] = corrupt(reg_pat[envs['val'][0]]['target'], self.val_corrupt).astype(float)
-            reg_pat[envs['test'][0]][self.feat_name] = corrupt(reg_pat[envs['test'][0]]['target'], self.test_corrupt).astype(float)
+        print('CorrLabel parameters: \n' + str(self.corrupts), flush = True)    
+        assert(all([i >=0 for i in self.corrupts.values()]))
+    
+    def augment(self, reg_mort, reg_pat):
+        for env in self.corrupts:
+            reg_pat[env][self.feat_name] = corrupt(reg_pat[env]['target'], self.corrupts[env])
         
 class Subsample():
     def __init__(self, g1_mean, g2_mean, g1_dist, g2_dist):
-        self.g1_mean = g1_mean
-        self.g2_mean = g2_mean  
-        self.g1_dist = g1_dist
-        self.g2_dist = g2_dist  
+
+        self.means = {
+            datasets.eICU.TRAIN_ENVS[0]: (g1_mean + g1_dist, g2_mean - g2_dist),
+            datasets.eICU.TRAIN_ENVS[1]: (g1_mean, g2_mean),
+            datasets.eICU.TRAIN_ENVS[2]: (g1_mean - g1_dist, g2_mean + g2_dist),
+            datasets.eICU.VAL_ENV: (0.3, 0.3),
+            datasets.eICU.TEST_ENV: (0.1, 0.5)
+        }
+
+        print('Subsampling parameters: \n' + str(self.means), flush = True)
     
     def subsample(self, mort_df, pat_df, g1, g2):     
         pat_df['group_membership'] = pat_df['gender'] == 'Male'
@@ -70,37 +70,27 @@ class Subsample():
         
         mort_df = mort_df.loc[~mort_df.index.get_level_values(0).isin(drop_inds)]
         
-        return mort_df, pat_df
-    
+        return mort_df, pat_df    
                 
-    def augment(self, reg_mort, reg_pat, envs): 
-        means = {}
-        if len(envs['train']) == 1: # ID test
-            means[envs['test'][0]] = (0.1, 0.5)
-        else:
-            means[envs['train'][0]] = (self.g1_mean + self.g1_dist, self.g2_mean - self.g2_dist)
-            means[envs['train'][1]] = (self.g1_mean, self.g2_mean)
-            means[envs['train'][2]] = (self.g1_mean - self.g1_dist, self.g2_mean + self.g2_dist)
-            means[envs['val'][0]] = (0.3, 0.3)
-            means[envs['test'][0]] = (0.1, 0.5)
-        
-        for env in means:
-            assert(0 <= means[env][0] <= 1)
-            assert(0 <= means[env][1] <= 1)
-            reg_mort[env], reg_pat[env] = self.subsample(reg_mort[env], reg_pat[env], means[env][0], means[env][1])
+    def augment(self, reg_mort, reg_pat): 
+        for env in self.means:
+            assert(0 <= self.means[env][0] <= 1)
+            assert(0 <= self.means[env][1] <= 1)
+            reg_mort[env], reg_pat[env] = self.subsample(reg_mort[env], reg_pat[env], self.means[env][0], self.means[env][1])
                      
             
 class GaussianNoise():        
     def __init__(self, train_corrupt_dist, train_corrupt_mean, val_corrupt, test_corrupt, std, feat_name = 'admissionweight'):
-        self.train_corrupt_dist = train_corrupt_dist
-        self.train_corrupt_mean = train_corrupt_mean
-        self.val_corrupt = val_corrupt
-        self.test_corrupt = test_corrupt
         self.feat_name = feat_name
         self.std = std
-        
-        self.train_corrupts = [train_corrupt_mean - train_corrupt_dist, train_corrupt_mean,
-                      train_corrupt_mean + train_corrupt_dist]       
+
+        self.corrupts = {datasets.eICU.TRAIN_ENVS[0]: train_corrupt_mean - train_corrupt_dist, 
+                    datasets.eICU.TRAIN_ENVS[1]:train_corrupt_mean,
+                      datasets.eICU.TRAIN_ENVS[2]: train_corrupt_mean + train_corrupt_dist,
+                      datasets.eICU.VAL_ENV: val_corrupt,
+                      datasets.eICU.TEST_ENV: test_corrupt}   
+
+        print('CorrNoise parameters: \n' + str(self.corrupts), flush = True)                    
 
     def add_noise(self, feat_col, pat_df, mean):
         pat_df['signed_target'] = pat_df['target'] *2 - 1
@@ -109,13 +99,7 @@ class GaussianNoise():
         feat_col = feat_col.to_frame(0).apply(lambda x: x[0] + pat_df.loc[x.name[0], 'noise'], axis = 1)
         return feat_col
         
-    def augment(self, reg_mort, reg_pat, envs):
-        feat_name = self.feat_name          
-        if len(envs['train']) == 1: # in-distribution exp
-            reg_mort[envs['test'][0]][feat_name] = self.add_noise(reg_mort[envs['test'][0]][feat_name], reg_pat[envs['test'][0]], self.test_corrupt)
-        else:
-            for c, i in enumerate(envs['train']):
-                reg_mort[i][feat_name] = self.add_noise(reg_mort[i][feat_name], reg_pat[i], self.train_corrupts[c])
-
-            reg_mort[envs['val'][0]][feat_name] = self.add_noise(reg_mort[envs['val'][0]][feat_name], reg_pat[envs['val'][0]], self.val_corrupt)
-            reg_mort[envs['test'][0]][feat_name] = self.add_noise(reg_mort[envs['test'][0]][feat_name], reg_pat[envs['test'][0]], self.test_corrupt)
+    def augment(self, reg_mort, reg_pat):
+        feat_name = self.feat_name       
+        for env in self.corrupts:
+            reg_mort[env][feat_name] = self.add_noise(reg_mort[env][feat_name], reg_pat[env], self.corrupts[env])

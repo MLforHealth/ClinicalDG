@@ -14,7 +14,7 @@ for train_corrupt in $(seq 0.10 0.20 0.50); do
             --output_dir "/scratch/ssd001/home/haoran/clinicaldg_results/eICUCorrLabel" \
             --command_launcher "slurm" \
             --n_trials 5 \
-            --algorithms ERMID ERMMerged ERM IRM VREx RVP CORAL MLDG GroupDRO \
+            --algorithms ERMID ERMMerged ERM IRM VREx RVP CORAL IGA MLDG GroupDRO \
             --datasets eICUCorrLabel \
             --n_hparams 10 \
             --slurm_pre "${slurm_pre}" \
