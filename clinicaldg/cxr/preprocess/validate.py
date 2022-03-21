@@ -11,10 +11,13 @@ def validate_mimic():
 
 def validate_cxp():
     img_dir = Path(Constants.image_paths['CXP'])
-    assert (img_dir/'map.csv').is_file()
-    assert (img_dir/'CheXpert-v1.0/train.csv').is_file()
-    assert (img_dir/'CheXpert-v1.0/train/patient48822/study1/view1_frontal.jpg').is_file()
-    assert (img_dir/'CheXpert-v1.0/valid/patient64636/study1/view1_frontal.jpg').is_file()
+    if (img_dir/'CheXpert-v1.0').is_dir():
+        cxp_subfolder = 'CheXpert-v1.0'
+    else:
+        cxp_subfolder = 'CheXpert-v1.0-small'
+    assert (img_dir/cxp_subfolder/'train.csv').is_file()
+    assert (img_dir/cxp_subfolder/'train/patient48822/study1/view1_frontal.jpg').is_file()
+    assert (img_dir/cxp_subfolder/'valid/patient64636/study1/view1_frontal.jpg').is_file()
 
 def validate_pad():
     img_dir = Path(Constants.image_paths['PAD'])
